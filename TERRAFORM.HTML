@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Terraform with Azure DevOps & AWS DevOps — Full Architecture</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+:root{
+  --bg:#060b16;--bg2:#0c1425;--bg3:#101c33;--border:#1b2d4f;
+  --azure:#0078d4;--azure2:#50e6ff;--azure3:#28a8e0;
+  --aws:#ff9900;--aws2:#ffb84d;--aws3:#f5a623;
+  --tf:#7b42bc;--tf2:#a97fe0;
+  --green:#10b981;--red:#ef4444;--cyan:#06b6d4;
+  --white:#e2e8f0;--dim:#94a3b8;--muted:#475569;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--white);padding:28px 20px;}
+
+/* HEADER */
+.hero{
+  background:linear-gradient(135deg,#060b16 0%,#0a1628 30%,#0d1f3c 60%,#0e1730 100%);
+  border:1px solid var(--border);border-radius:24px;padding:40px 32px;
+  text-align:center;margin-bottom:40px;position:relative;overflow:hidden;
+}
+.hero::before{content:'';position:absolute;top:-60px;left:-60px;width:300px;height:300px;
+  background:radial-gradient(circle,rgba(0,120,212,0.15),transparent);border-radius:50%;}
+.hero::after{content:'';position:absolute;bottom:-60px;right:-60px;width:300px;height:300px;
+  background:radial-gradient(circle,rgba(255,153,0,0.12),transparent);border-radius:50%;}
+.hero-badges{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:20px;position:relative;}
+.hbadge{padding:5px 16px;border-radius:50px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;}
+.hb-azure{background:rgba(0,120,212,0.18);border:1px solid rgba(0,120,212,0.5);color:#50e6ff;}
+.hb-aws{background:rgba(255,153,0,0.15);border:1px solid rgba(255,153,0,0.4);color:#ffb84d;}
+.hb-tf{background:rgba(123,66,188,0.18);border:1px solid rgba(123,66,188,0.5);color:#a97fe0;}
+.hero h1{font-size:clamp(26px,4.5vw,48px);font-weight:900;position:relative;
+  background:linear-gradient(135deg,#e2e8f0 0%,#50e6ff 35%,#a97fe0 65%,#ffb84d 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  line-height:1.2;margin-bottom:12px;}
+.hero p{color:var(--dim);font-size:15px;max-width:680px;margin:0 auto;position:relative;}
+
+/* SECTION HEADER */
+.sec-hdr{display:flex;align-items:center;gap:12px;margin-bottom:20px;margin-top:8px;}
+.sec-hdr .sn{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;
+  justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;}
+.sec-hdr h2{font-size:18px;font-weight:700;}
+.sec-hdr .stag{margin-left:auto;font-size:10px;font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;padding:3px 12px;border-radius:20px;}
+
+/* DIVIDER */
+.div{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:36px 0;}
+
+/* ── MULTI-CLOUD ARCHITECTURE GRID ── */
+.mc-grid{display:grid;grid-template-columns:1fr 80px 1fr;gap:0;margin-bottom:8px;}
+.cloud-col{display:flex;flex-direction:column;gap:0;}
+.mc-center{display:flex;flex-direction:column;align-items:center;justify-content:space-around;padding:0 4px;}
+
+/* cloud panel */
+.cloud-panel{border-radius:16px;padding:18px 16px;border:1px solid;}
+.az-panel{background:linear-gradient(135deg,rgba(0,120,212,0.07),rgba(0,120,212,0.02));border-color:rgba(0,120,212,0.3);}
+.az-panel .cp-top{color:#50e6ff;}
+.aw-panel{background:linear-gradient(135deg,rgba(255,153,0,0.07),rgba(255,153,0,0.02));border-color:rgba(255,153,0,0.3);}
+.aw-panel .cp-top{color:#ffb84d;}
+
+.cp-top{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.cp-logo{font-size:18px;}
+
+/* service card inside panel */
+.svc{display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;padding:9px 12px;margin-bottom:8px;}
+.svc:last-child{margin-bottom:0;}
+.svc-icon{font-size:18px;flex-shrink:0;}
+.svc-name{font-size:12px;font-weight:700;color:var(--white);}
+.svc-sub{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;}
+
+/* center connector */
+.cc-node{background:var(--bg3);border:1px solid rgba(123,66,188,0.5);border-radius:10px;
+  padding:8px 6px;text-align:center;margin:4px 0;}
+.cc-node .cn-icon{font-size:16px;}
+.cc-node .cn-label{font-size:9px;font-weight:700;color:#a97fe0;margin-top:3px;}
+.v-arrow{color:#8b5cf6;font-size:16px;line-height:1;}
+
+/* ── TERRAFORM SECTION ── */
+.tf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:8px;}
+.tf-card{background:var(--bg2);border:1px solid rgba(123,66,188,0.3);border-radius:14px;
+  padding:16px;position:relative;overflow:hidden;}
+.tf-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,transparent,rgba(123,66,188,0.7),transparent);}
+.tf-card-title{font-size:12px;font-weight:800;color:#a97fe0;text-transform:uppercase;
+  letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.tf-item{font-size:11px;color:var(--dim);padding:3px 0;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:6px;}
+.tf-item:last-child{border-bottom:none;}
+.tf-dot{width:5px;height:5px;border-radius:50%;background:#a97fe0;flex-shrink:0;}
+
+/* ── PIPELINE STEPS ── */
+.pipe-row{display:flex;align-items:stretch;gap:0;margin-bottom:24px;overflow-x:auto;}
+.pipe-step{flex:1;min-width:110px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:12px;padding:14px 10px;text-align:center;position:relative;}
+.pipe-step::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:12px 12px 0 0;}
+.ps-azure::before{background:linear-gradient(90deg,var(--azure),var(--azure2));}
+.ps-aws::before{background:linear-gradient(90deg,var(--aws3),var(--aws2));}
+.ps-tf::before{background:linear-gradient(90deg,var(--tf),var(--tf2));}
+.ps-shared::before{background:linear-gradient(90deg,var(--green),var(--cyan));}
+.pipe-arrow{display:flex;align-items:center;padding:0 4px;color:var(--muted);font-size:18px;flex-shrink:0;}
+.pi-icon{font-size:22px;margin-bottom:6px;}
+.pi-title{font-size:10px;font-weight:700;color:var(--white);margin-bottom:3px;}
+.pi-tool{font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace;}
+
+/* ── WORKFLOW CARDS ── */
+.wf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px;margin-bottom:8px;}
+.wf-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;
+  padding:18px;display:flex;gap:14px;transition:box-shadow .2s,border-color .2s;}
+.wf-card:hover{border-color:var(--azure);box-shadow:0 0 18px rgba(0,120,212,0.2);}
+.wf-num{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;}
+.wf-body h3{font-size:13px;font-weight:700;margin-bottom:5px;}
+.wf-body p{font-size:11px;color:var(--dim);line-height:1.65;}
+.wf-tag{display:inline-block;margin-top:7px;font-size:10px;font-family:'JetBrains Mono',monospace;
+  padding:2px 8px;border-radius:5px;}
+
+/* ── FLOW STEPS ── */
+.flow-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:28px;}
+.flow-inner{display:flex;flex-direction:column;align-items:center;gap:0;}
+.fs{width:100%;max-width:680px;background:var(--bg3);border:1px solid var(--border);
+  border-radius:11px;padding:13px 18px;display:flex;align-items:center;gap:12px;
+  opacity:0;transform:translateX(-20px);animation:si .45s forwards;}
+@keyframes si{to{opacity:1;transform:none;}}
+.fs:nth-child(1){animation-delay:.05s}.fs:nth-child(3){animation-delay:.13s}
+.fs:nth-child(5){animation-delay:.21s}.fs:nth-child(7){animation-delay:.29s}
+.fs:nth-child(9){animation-delay:.37s}.fs:nth-child(11){animation-delay:.45s}
+.fs:nth-child(13){animation-delay:.53s}.fs:nth-child(15){animation-delay:.61s}
+.fs:nth-child(17){animation-delay:.69s}.fs:nth-child(19){animation-delay:.77s}
+.fa-icon{width:40px;height:40px;border-radius:9px;display:flex;align-items:center;
+  justify-content:center;font-size:16px;flex-shrink:0;}
+.fa-text{flex:1;}
+.fa-text .fa-lbl{font-size:12px;font-weight:700;}
+.fa-text .fa-dsc{font-size:10px;color:var(--muted);margin-top:2px;}
+.fa-badge{font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace;
+  padding:3px 9px;border-radius:20px;flex-shrink:0;}
+.farrow{height:28px;display:flex;align-items:center;justify-content:center;
+  color:var(--azure);font-size:18px;animation:bd 1.2s infinite;}
+@keyframes bd{0%,100%{transform:translateY(0);}50%{transform:translateY(4px);}}
+
+/* ── TOOLS TABLE ── */
+.tools-table{width:100%;border-collapse:collapse;border-radius:14px;overflow:hidden;margin-bottom:8px;}
+.tools-table th{background:var(--bg3);color:var(--white);font-size:11px;font-weight:700;
+  padding:11px 14px;text-align:left;letter-spacing:.5px;}
+.tools-table td{padding:9px 14px;font-size:11px;color:var(--dim);border-top:1px solid var(--border);}
+.tools-table tr:nth-child(even) td{background:rgba(255,255,255,0.015);}
+.tools-table tr:hover td{background:rgba(0,120,212,0.05);}
+.tl-cloud{display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;}
+.tl-azure{background:rgba(0,120,212,0.15);color:#50e6ff;border:1px solid rgba(0,120,212,0.3);}
+.tl-aws{background:rgba(255,153,0,0.15);color:#ffb84d;border:1px solid rgba(255,153,0,0.3);}
+.tl-both{background:rgba(123,66,188,0.15);color:#a97fe0;border:1px solid rgba(123,66,188,0.3);}
+.tl-shared{background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);}
+
+/* ── MERMAID ── */
+.mermaid-wrap{background:#040810;border:1px solid var(--border);border-radius:16px;
+  padding:24px;margin-bottom:8px;overflow-x:auto;}
+.mermaid-wrap pre{font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.85;
+  white-space:pre;color:#7dd3fc;}
+.mc{color:#374151;}.mn{color:#34d399;}.ma{color:#3b82f6;}.mk{color:#fbbf24;}.ms{color:#a78bfa;}
+
+/* ── LINKEDIN CAPTION ── */
+.li-card{background:linear-gradient(135deg,rgba(0,120,212,0.07),rgba(123,66,188,0.07));
+  border:1px solid rgba(123,66,188,0.3);border-radius:20px;padding:28px;position:relative;overflow:hidden;}
+.li-card::before{content:'';position:absolute;top:-50px;right:-50px;width:180px;height:180px;
+  background:radial-gradient(circle,rgba(0,120,212,0.12),transparent);border-radius:50%;}
+.li-card::after{content:'';position:absolute;bottom:-50px;left:-50px;width:180px;height:180px;
+  background:radial-gradient(circle,rgba(255,153,0,0.1),transparent);border-radius:50%;}
+.li-head{display:flex;align-items:center;gap:12px;margin-bottom:18px;position:relative;}
+.li-icon{width:42px;height:42px;border-radius:10px;background:#0077b5;display:flex;
+  align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff;flex-shrink:0;}
+.li-body{font-size:13px;line-height:1.9;color:var(--dim);position:relative;}
+.li-body .hl{color:var(--white);font-weight:700;}
+.li-body .chk{color:#34d399;}
+.hashtags{margin-top:14px;color:#60a5fa;font-size:12px;font-weight:600;line-height:1.8;}
+
+/* STATE BACKEND */
+.state-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:8px;}
+.state-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;}
+.state-card h4{font-size:12px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.state-item{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--dim);
+  padding:5px 0;border-bottom:1px solid var(--border);}
+.state-item:last-child{border-bottom:none;}
+.si-icon{font-size:14px;}
+
+/* footer */
+.footer{text-align:center;color:var(--muted);font-size:11px;padding-top:18px;
+  border-top:1px solid var(--border);}
+
+/* COMPARE TABLE */
+.cmp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:8px;}
+.cmp-col{background:var(--bg2);border-radius:14px;overflow:hidden;}
+.cmp-hdr{padding:13px 16px;font-size:12px;font-weight:800;display:flex;align-items:center;gap:8px;}
+.cmp-az-hdr{background:rgba(0,120,212,0.2);color:#50e6ff;}
+.cmp-aw-hdr{background:rgba(255,153,0,0.15);color:#ffb84d;}
+.cmp-row{display:flex;align-items:center;gap:10px;padding:8px 16px;
+  border-top:1px solid var(--border);font-size:11px;color:var(--dim);}
+.cmp-lbl{font-weight:700;color:var(--white);width:90px;flex-shrink:0;font-size:10px;}
+
+@media(max-width:700px){
+  .mc-grid{grid-template-columns:1fr;}.mc-center{flex-direction:row;flex-wrap:wrap;justify-content:center;}
+  .cmp-grid,.state-grid{grid-template-columns:1fr;}
+  .pipe-row{flex-direction:column;}.pipe-arrow{transform:rotate(90deg);}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ HERO ══════════════════════════════════════════════════════════════════ -->
+<div class="hero">
+  <div class="hero-badges">
+    <span class="hbadge hb-azure">☁️ Azure DevOps</span>
+    <span class="hbadge hb-tf">🏗️ Terraform IaC</span>
+    <span class="hbadge hb-aws">☁️ AWS DevOps</span>
+  </div>
+  <h1>Terraform with Azure DevOps<br/>&amp; AWS DevOps</h1>
+  <p>Complete multi-cloud IaC architecture — end-to-end pipelines, state management, security, drift detection, and observability across Azure &amp; AWS using Terraform as the single IaC engine.</p>
+</div>
+
+<!-- ══ SECTION 1 — MULTI-CLOUD ARCHITECTURE ════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sn" style="background:linear-gradient(135deg,#0078d4,#50e6ff)">1</div>
+  <h2>Multi-Cloud Architecture Diagram</h2>
+  <span class="stag" style="background:rgba(0,120,212,0.12);border:1px solid rgba(0,120,212,0.3);color:#50e6ff;">AZURE + AWS</span>
+</div>
+
+<div class="mc-grid" style="margin-bottom:8px;min-width:720px;overflow-x:auto;">
+
+  <!-- AZURE COLUMN -->
+  <div class="cloud-col">
+    <div class="cloud-panel az-panel">
+      <div class="cp-top"><span class="cp-logo">☁️</span>AZURE DEVOPS STACK</div>
+
+      <div class="svc">
+        <span class="svc-icon">📁</span>
+        <div><div class="svc-name">Azure Repos</div><div class="svc-sub">Git — Terraform Source</div></div>
+      </div>
+      <div class="svc">
+        <span class="svc-icon">⚙️</span>
+        <div><div class="svc-name">Azure Pipelines</div><div class="svc-sub">CI/CD YAML Pipelines</div></div>
+      </div>
+      <div class="svc">
+        <span class="svc-icon">📦</span>
+        <div><div class="svc-name">Azure Artifacts</div><div class="svc-sub">Terraform Module Registry</div></div>
+      </div>
+      <div class="svc">
+        <span class="svc-icon">🔒</span>
+        <div><div class="svc-name">Azure Key Vault</div><div class="svc-sub">Secrets &amp; Credentials</div></div>
+      </div>
+      <div class="svc">
+        <span class="svc-icon">🗃️</span>
+        <div><div class="svc-name">Azure Blob (tfstate)</div><div class="svc-sub">Remote State Backend</div></div>
+      </div>
+      <div class="svc">
+        <span class="svc-icon">📊</span>
+        <div><div class="svc-name">Azure Monitor</div><div class="svc-sub">Metrics &amp; Alerts</div></div>
+      </div>
+
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="font-size:10px;color:#50e6ff;font-weight:700;letter-spacing:1px;margin-bottom:8px;">PROVISIONED AZURE RESOURCES</div>
+        <div class="svc" style="background:rgba(0,120,212,0.08)">
+          <span class="svc-icon">☸️</span>
+          <div><div class="svc-name">AKS Cluster</div><div class="svc-sub">Azure Kubernetes Service</div></div>
+        </div>
+        <div class="svc" style="background:rgba(0,120,212,0.08)">
+          <span class="svc-icon">🌐</span>
+          <div><div class="svc-name">VNet + Subnets</div><div class="svc-sub">Network Topology</div></div>
+        </div>
+        <div class="svc" style="background:rgba(0,120,212,0.08)">
+          <span class="svc-icon">🗄️</span>
+          <div><div class="svc-name">Azure SQL / Cosmos</div><div class="svc-sub">Managed Databases</div></div>
+        </div>
+        <div class="svc" style="background:rgba(0,120,212,0.08)">
+          <span class="svc-icon">⚡</span>
+          <div><div class="svc-name">App Service / Functions</div><div class="svc-sub">Compute Platform</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER COLUMN — Terraform -->
+  <div class="mc-center">
+    <div class="cc-node">
+      <div class="cn-icon">👨‍💻</div>
+      <div class="cn-label">DEV</div>
+    </div>
+    <div class="v-arrow">↕</div>
+    <div class="cc-node">
+      <div class="cn-icon">🏗️</div>
+      <div class="cn-label">TERRAFORM</div>
+    </div>
+    <div class="v-arrow">↕</div>
+    <div class="cc-node">
+      <div class="cn-icon">📋</div>
+      <div class="cn-label">TF STATE</div>
+    </div>
+    <div class="v-arrow">↕</div>
+    <div class="cc-node">
+      <div class="cn-icon">🔒</div>
+      <div class="cn-label">SECRETS</div>
+    </div>
+    <div class="v-arrow">↕</div>
+    <div class="cc-node">
+      <div class="cn-icon">📊</div>
+      <div class="cn-label">OBSERVE</div>
+    </div>
+  </div>
+
+  <!-- AWS COLUMN -->
+  <div class="cloud-col">
+    <div class="cloud-panel aw-panel">
+      <div class="cp-top"><span class="cp-logo">🟠</span>AWS DEVOPS STACK</div>
+
+      <div class="svc">
+        <span class="svc-icon">📁</span>
+        <div><div class="svc-name">AWS CodeCommit</div><div class="svc-sub">Git — Terraform Source</div></div>
+      </div>
+      <div class="svc">
+        <span class="svc-icon">⚙️</span>
+        <div><div class="svc-name">AWS CodePipeline</div><div class="svc-sub">Orchestration Engine</div></div>
+      </div>
+      <div class="svc">
+        <span class="svc-icon">🔨</span>
+        <div><div class="svc-name">AWS CodeBuild</div><div class="svc-sub">Build &amp; TF Plan/Apply</div></div>
+      </div>
+      <div class="svc">
+        <span class="svc-icon">🔒</span>
+        <div><div class="svc-name">AWS Secrets Manager</div><div class="svc-sub">Secrets &amp; SSM Params</div></div>
+      </div>
+      <div class="svc">
+        <span class="svc-icon">🗃️</span>
+        <div><div class="svc-name">S3 + DynamoDB (tfstate)</div><div class="svc-sub">Remote State + Lock</div></div>
+      </div>
+      <div class="svc">
+        <span class="svc-icon">📊</span>
+        <div><div class="svc-name">AWS CloudWatch</div><div class="svc-sub">Logs, Metrics, Alarms</div></div>
+      </div>
+
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="font-size:10px;color:#ffb84d;font-weight:700;letter-spacing:1px;margin-bottom:8px;">PROVISIONED AWS RESOURCES</div>
+        <div class="svc" style="background:rgba(255,153,0,0.07)">
+          <span class="svc-icon">☸️</span>
+          <div><div class="svc-name">EKS Cluster</div><div class="svc-sub">Elastic Kubernetes Service</div></div>
+        </div>
+        <div class="svc" style="background:rgba(255,153,0,0.07)">
+          <span class="svc-icon">🌐</span>
+          <div><div class="svc-name">VPC + Subnets</div><div class="svc-sub">Network Topology</div></div>
+        </div>
+        <div class="svc" style="background:rgba(255,153,0,0.07)">
+          <span class="svc-icon">🗄️</span>
+          <div><div class="svc-name">RDS / DynamoDB</div><div class="svc-sub">Managed Databases</div></div>
+        </div>
+        <div class="svc" style="background:rgba(255,153,0,0.07)">
+          <span class="svc-icon">📦</span>
+          <div><div class="svc-name">EC2 / ECS / Lambda</div><div class="svc-sub">Compute Platform</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="div"></div>
+
+<!-- ══ SECTION 2 — TERRAFORM DEEP DIVE ════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sn" style="background:linear-gradient(135deg,#7b42bc,#a97fe0)">2</div>
+  <h2>Terraform Project Structure &amp; Modules</h2>
+  <span class="stag" style="background:rgba(123,66,188,0.12);border:1px solid rgba(123,66,188,0.3);color:#a97fe0;">IaC DEEP DIVE</span>
+</div>
+
+<div class="tf-grid">
+  <div class="tf-card">
+    <div class="tf-card-title">📁 Repo Structure</div>
+    <div class="tf-item"><span class="tf-dot"></span>modules/ — Reusable TF modules</div>
+    <div class="tf-item"><span class="tf-dot"></span>environments/dev/ — Dev workspace</div>
+    <div class="tf-item"><span class="tf-dot"></span>environments/staging/</div>
+    <div class="tf-item"><span class="tf-dot"></span>environments/prod/</div>
+    <div class="tf-item"><span class="tf-dot"></span>main.tf, variables.tf, outputs.tf</div>
+    <div class="tf-item"><span class="tf-dot"></span>backend.tf — Remote state config</div>
+    <div class="tf-item"><span class="tf-dot"></span>.terraform.lock.hcl — Provider lock</div>
+  </div>
+  <div class="tf-card">
+    <div class="tf-card-title">🔁 TF Workflow</div>
+    <div class="tf-item"><span class="tf-dot"></span>terraform init — Init providers + backend</div>
+    <div class="tf-item"><span class="tf-dot"></span>terraform validate — Syntax check</div>
+    <div class="tf-item"><span class="tf-dot"></span>terraform fmt — Format code</div>
+    <div class="tf-item"><span class="tf-dot"></span>terraform plan — Preview changes</div>
+    <div class="tf-item"><span class="tf-dot"></span>terraform apply -auto-approve</div>
+    <div class="tf-item"><span class="tf-dot"></span>terraform destroy — Tear down</div>
+    <div class="tf-item"><span class="tf-dot"></span>tflint / checkov — Policy scan</div>
+  </div>
+  <div class="tf-card">
+    <div class="tf-card-title">🔒 State Management</div>
+    <div class="tf-item"><span class="tf-dot"></span>Azure: azurerm backend (Blob Storage)</div>
+    <div class="tf-item"><span class="tf-dot"></span>AWS: s3 backend + DynamoDB lock</div>
+    <div class="tf-item"><span class="tf-dot"></span>Workspaces per environment</div>
+    <div class="tf-item"><span class="tf-dot"></span>State encryption at rest</div>
+    <div class="tf-item"><span class="tf-dot"></span>State locking prevents concurrent runs</div>
+    <div class="tf-item"><span class="tf-dot"></span>Remote state outputs shared between modules</div>
+    <div class="tf-item"><span class="tf-dot"></span>terraform_remote_state data source</div>
+  </div>
+  <div class="tf-card">
+    <div class="tf-card-title">🛡️ Security &amp; Policy</div>
+    <div class="tf-item"><span class="tf-dot"></span>checkov — Static analysis (CIS/NIST)</div>
+    <div class="tf-item"><span class="tf-dot"></span>tfsec — Infrastructure misconfig scan</div>
+    <div class="tf-item"><span class="tf-dot"></span>Sentinel Policies — HCP Terraform</div>
+    <div class="tf-item"><span class="tf-dot"></span>OPA — Open Policy Agent rules</div>
+    <div class="tf-item"><span class="tf-dot"></span>Service Principal / OIDC auth</div>
+    <div class="tf-item"><span class="tf-dot"></span>Least-privilege IAM roles</div>
+    <div class="tf-item"><span class="tf-dot"></span>No secrets in .tf files (use Vault/KV)</div>
+  </div>
+</div>
+
+<div class="div"></div>
+
+<!-- ══ SECTION 3 — AZURE DEVOPS PIPELINE ══════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sn" style="background:linear-gradient(135deg,#0078d4,#50e6ff)">3</div>
+  <h2>Azure DevOps — Terraform Pipeline</h2>
+  <span class="stag" style="background:rgba(0,120,212,0.12);border:1px solid rgba(0,120,212,0.3);color:#50e6ff;">AZURE PIPELINES</span>
+</div>
+
+<div class="pipe-row">
+  <div class="pipe-step ps-azure"><div class="pi-icon">📝</div><div class="pi-title">PR Trigger</div><div class="pi-tool">azure-pipelines.yml</div></div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step ps-azure"><div class="pi-icon">⚙️</div><div class="pi-title">Init + Validate</div><div class="pi-tool">terraform init</div></div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step ps-shared"><div class="pi-icon">🛡️</div><div class="pi-title">Checkov Scan</div><div class="pi-tool">checkov -d .</div></div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step ps-azure"><div class="pi-icon">📋</div><div class="pi-title">TF Plan</div><div class="pi-tool">terraform plan -out</div></div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step ps-azure"><div class="pi-icon">👁️</div><div class="pi-title">Plan Review</div><div class="pi-tool">Manual Approval Gate</div></div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step ps-azure"><div class="pi-icon">🚀</div><div class="pi-title">TF Apply</div><div class="pi-tool">terraform apply tfplan</div></div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step ps-azure"><div class="pi-icon">📊</div><div class="pi-title">Post Deploy</div><div class="pi-tool">Azure Monitor Alert</div></div>
+</div>
+
+<div style="background:var(--bg2);border:1px solid rgba(0,120,212,0.25);border-radius:14px;padding:18px;margin-bottom:8px;">
+  <div style="font-size:11px;font-weight:700;color:#50e6ff;margin-bottom:10px;letter-spacing:1px;">📄 azure-pipelines.yml (Key Stages)</div>
+  <pre style="font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.75;color:#7dd3fc;overflow-x:auto;"><span style="color:#a97fe0">trigger:</span>
+  branches: { include: [main, staging] }
+  paths: { include: [terraform/**] }
+
+<span style="color:#a97fe0">stages:</span>
+  - stage: <span style="color:#34d399">Validate</span>
+    jobs:
+      - job: TerraformValidate
+        steps:
+          - task: <span style="color:#fbbf24">TerraformInstaller@0</span>
+          - script: <span style="color:#fb7185">terraform init -backend=false</span>
+          - script: <span style="color:#fb7185">terraform validate && terraform fmt --check</span>
+          - script: <span style="color:#fb7185">checkov -d . --framework terraform</span>
+
+  - stage: <span style="color:#34d399">Plan</span>
+    jobs:
+      - job: TerraformPlan
+        steps:
+          - task: <span style="color:#fbbf24">TerraformTaskV4@4</span>
+            inputs: { command: init, backendType: azurerm }
+          - task: <span style="color:#fbbf24">TerraformTaskV4@4</span>
+            inputs: { command: plan, commandOptions: '-out=tfplan' }
+
+  - stage: <span style="color:#34d399">Apply</span>
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: TerraformApply
+        environment: <span style="color:#fbbf24">production</span>   <span style="color:#374151"># manual approval gate</span>
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: <span style="color:#fbbf24">TerraformTaskV4@4</span>
+                  inputs: { command: apply, commandOptions: 'tfplan' }</pre>
+</div>
+
+<div class="div"></div>
+
+<!-- ══ SECTION 4 — AWS DEVOPS PIPELINE ════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sn" style="background:linear-gradient(135deg,#f5a623,#ffb84d)">4</div>
+  <h2>AWS DevOps — Terraform Pipeline</h2>
+  <span class="stag" style="background:rgba(255,153,0,0.12);border:1px solid rgba(255,153,0,0.3);color:#ffb84d;">CODEPIPELINE + CODEBUILD</span>
+</div>
+
+<div class="pipe-row">
+  <div class="pipe-step ps-aws"><div class="pi-icon">📁</div><div class="pi-title">CodeCommit Push</div><div class="pi-tool">git push main</div></div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step ps-aws"><div class="pi-icon">⚡</div><div class="pi-title">EventBridge</div><div class="pi-tool">Trigger Rule</div></div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step ps-aws"><div class="pi-icon">🔨</div><div class="pi-title">CodeBuild: Init</div><div class="pi-tool">buildspec.yml</div></div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step ps-shared"><div class="pi-icon">🛡️</div><div class="pi-title">tfsec + checkov</div><div class="pi-tool">Security Gate</div></div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step ps-aws"><div class="pi-icon">📋</div><div class="pi-title">CodeBuild: Plan</div><div class="pi-tool">TF Plan → S3</div></div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step ps-aws"><div class="pi-icon">👁️</div><div class="pi-title">SNS Approval</div><div class="pi-tool">Manual Gate</div></div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step ps-aws"><div class="pi-icon">🚀</div><div class="pi-title">CodeBuild: Apply</div><div class="pi-tool">terraform apply</div></div>
+</div>
+
+<div style="background:var(--bg2);border:1px solid rgba(255,153,0,0.25);border-radius:14px;padding:18px;margin-bottom:8px;">
+  <div style="font-size:11px;font-weight:700;color:#ffb84d;margin-bottom:10px;letter-spacing:1px;">📄 buildspec.yml (AWS CodeBuild)</div>
+  <pre style="font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.75;color:#7dd3fc;overflow-x:auto;"><span style="color:#a97fe0">version:</span> 0.2
+
+<span style="color:#a97fe0">env:</span>
+  parameter-store:
+    TF_VAR_db_password: <span style="color:#fbbf24">/prod/db/password</span>
+    AWS_ACCESS_KEY_ID:  <span style="color:#fbbf24">/terraform/access-key</span>
+
+<span style="color:#a97fe0">phases:</span>
+  install:
+    commands:
+      - <span style="color:#fb7185">wget https://releases.hashicorp.com/terraform/1.8.0/terraform_1.8.0_linux_amd64.zip</span>
+      - <span style="color:#fb7185">unzip terraform*.zip && mv terraform /usr/local/bin/</span>
+      - <span style="color:#fb7185">pip install checkov</span>
+
+  pre_build:
+    commands:
+      - <span style="color:#fb7185">terraform init -backend-config="bucket=$TF_STATE_BUCKET"</span>
+      - <span style="color:#fb7185">terraform validate && terraform fmt -check</span>
+      - <span style="color:#fb7185">checkov -d . --framework terraform --output junitxml</span>
+      - <span style="color:#fb7185">tfsec . --format json</span>
+
+  build:
+    commands:
+      - <span style="color:#fb7185">terraform plan -out=tfplan -var-file=environments/$ENV/terraform.tfvars</span>
+      - <span style="color:#fb7185">terraform show -json tfplan > tfplan.json</span>
+      - <span style="color:#fb7185">aws s3 cp tfplan s3://$TF_STATE_BUCKET/plans/$CODEBUILD_BUILD_ID/</span>
+
+  post_build:
+    commands:
+      - <span style="color:#fb7185">terraform apply -auto-approve tfplan   # only in Apply stage</span>
+
+<span style="color:#a97fe0">artifacts:</span>
+  files: [tfplan, tfplan.json, '**/*.xml']</pre>
+</div>
+
+<div class="div"></div>
+
+<!-- ══ SECTION 5 — STATE BACKEND COMPARISON ═══════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sn" style="background:linear-gradient(135deg,#10b981,#06b6d4)">5</div>
+  <h2>Terraform State Backend — Azure vs AWS</h2>
+  <span class="stag" style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);color:#34d399;">STATE MANAGEMENT</span>
+</div>
+
+<div class="state-grid">
+  <div class="state-card" style="border-color:rgba(0,120,212,0.3)">
+    <h4 style="color:#50e6ff;">☁️ Azure Blob Storage Backend</h4>
+    <div class="state-item"><span class="si-icon">🗃️</span>Resource Group → Storage Account → Container</div>
+    <div class="state-item"><span class="si-icon">🔒</span>Azure AD / Service Principal auth</div>
+    <div class="state-item"><span class="si-icon">🔐</span>Encryption with Azure Key Vault CMK</div>
+    <div class="state-item"><span class="si-icon">🔁</span>State locking via Blob lease mechanism</div>
+    <div class="state-item"><span class="si-icon">📜</span>Soft-delete + versioning for state history</div>
+    <div class="state-item"><span class="si-icon">🌍</span>GRS replication for DR</div>
+    <div style="margin-top:12px;background:var(--bg3);border-radius:8px;padding:10px;">
+      <pre style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#7dd3fc;line-height:1.7">terraform {
+  backend "azurerm" {
+    resource_group_name  = "tf-state-rg"
+    storage_account_name = "tfstatestorage"
+    container_name       = "tfstate"
+    key                  = "prod/terraform.tfstate"
+    use_oidc             = true
+  }
+}</pre>
+    </div>
+  </div>
+  <div class="state-card" style="border-color:rgba(255,153,0,0.3)">
+    <h4 style="color:#ffb84d;">🟠 AWS S3 + DynamoDB Backend</h4>
+    <div class="state-item"><span class="si-icon">🗃️</span>S3 bucket with versioning enabled</div>
+    <div class="state-item"><span class="si-icon">🔒</span>IAM Role / OIDC for pipeline auth</div>
+    <div class="state-item"><span class="si-icon">🔐</span>S3 SSE-KMS encryption</div>
+    <div class="state-item"><span class="si-icon">🔁</span>DynamoDB table for state locking</div>
+    <div class="state-item"><span class="si-icon">📜</span>S3 Versioning for state history</div>
+    <div class="state-item"><span class="si-icon">🌍</span>Cross-region replication for DR</div>
+    <div style="margin-top:12px;background:var(--bg3);border-radius:8px;padding:10px;">
+      <pre style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#7dd3fc;line-height:1.7">terraform {
+  backend "s3" {
+    bucket         = "my-tf-state-bucket"
+    key            = "prod/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-state-lock"
+    encrypt        = true
+    kms_key_id     = "alias/terraform-state"
+  }
+}</pre>
+    </div>
+  </div>
+</div>
+
+<div class="div"></div>
+
+<!-- ══ SECTION 6 — END-TO-END WORKFLOW ════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sn" style="background:linear-gradient(135deg,#8b5cf6,#06b6d4)">6</div>
+  <h2>End-to-End Workflow (10 Steps)</h2>
+  <span class="stag" style="background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.3);color:#a78bfa;">FULL FLOW</span>
+</div>
+
+<div class="wf-grid">
+  <div class="wf-card">
+    <div class="wf-num" style="background:linear-gradient(135deg,#0078d4,#50e6ff)">01</div>
+    <div class="wf-body">
+      <h3>👨‍💻 Developer Writes Terraform Code</h3>
+      <p>Engineer creates/modifies .tf files in a feature branch. Uses VS Code with HashiCorp Terraform extension. Follows module structure conventions.</p>
+      <span class="wf-tag" style="background:rgba(0,120,212,0.12);color:#50e6ff;border:1px solid rgba(0,120,212,0.25)">git checkout -b feature/add-rds</span>
+    </div>
+  </div>
+  <div class="wf-card">
+    <div class="wf-num" style="background:linear-gradient(135deg,#0078d4,#50e6ff)">02</div>
+    <div class="wf-body">
+      <h3>🔍 Pre-commit Hooks Run Locally</h3>
+      <p>terraform fmt, terraform validate, tflint, and detect-secrets hooks run before commit. Catches issues before CI even starts.</p>
+      <span class="wf-tag" style="background:rgba(16,185,129,0.12);color:#34d399;border:1px solid rgba(16,185,129,0.25)">pre-commit run --all-files</span>
+    </div>
+  </div>
+  <div class="wf-card">
+    <div class="wf-num" style="background:linear-gradient(135deg,#7b42bc,#a97fe0)">03</div>
+    <div class="wf-body">
+      <h3>📤 PR Opened → CI Triggers</h3>
+      <p>Pull Request opened against main. Azure Pipelines / CodePipeline trigger automatically. Pipeline validates code, runs security scans with checkov and tfsec.</p>
+      <span class="wf-tag" style="background:rgba(123,66,188,0.12);color:#a97fe0;border:1px solid rgba(123,66,188,0.25)">checkov -d . --framework terraform</span>
+    </div>
+  </div>
+  <div class="wf-card">
+    <div class="wf-num" style="background:linear-gradient(135deg,#7b42bc,#a97fe0)">04</div>
+    <div class="wf-body">
+      <h3>🏗️ terraform init + Backend Config</h3>
+      <p>Pipeline initialises Terraform with remote backend. Downloads providers, configures Azure Blob or S3+DynamoDB state. Service Principal / IAM Role auth.</p>
+      <span class="wf-tag" style="background:rgba(123,66,188,0.12);color:#a97fe0;border:1px solid rgba(123,66,188,0.25)">terraform init -reconfigure</span>
+    </div>
+  </div>
+  <div class="wf-card">
+    <div class="wf-num" style="background:linear-gradient(135deg,#f5a623,#ffb84d)">05</div>
+    <div class="wf-body">
+      <h3>📋 terraform plan — Change Preview</h3>
+      <p>Generates execution plan. Shows exactly what will be created/modified/destroyed. Plan saved as artifact and published as PR comment for review.</p>
+      <span class="wf-tag" style="background:rgba(255,153,0,0.12);color:#ffb84d;border:1px solid rgba(255,153,0,0.25)">terraform plan -out=tfplan.binary</span>
+    </div>
+  </div>
+  <div class="wf-card">
+    <div class="wf-num" style="background:linear-gradient(135deg,#f5a623,#ffb84d)">06</div>
+    <div class="wf-body">
+      <h3>👁️ Manual Approval Gate (Prod)</h3>
+      <p>For staging/prod: senior engineer reviews plan output. Azure DevOps Environments approval, or AWS SNS + Lambda approval gate. No auto-apply in production.</p>
+      <span class="wf-tag" style="background:rgba(255,153,0,0.12);color:#ffb84d;border:1px solid rgba(255,153,0,0.25)">Approval required — Azure Env Gate</span>
+    </div>
+  </div>
+  <div class="wf-card">
+    <div class="wf-num" style="background:linear-gradient(135deg,#10b981,#06b6d4)">07</div>
+    <div class="wf-body">
+      <h3>🚀 terraform apply — Resources Created</h3>
+      <p>Approved plan executed. Terraform provisions/modifies cloud resources. State written to remote backend. Outputs captured and passed to downstream pipelines.</p>
+      <span class="wf-tag" style="background:rgba(16,185,129,0.12);color:#34d399;border:1px solid rgba(16,185,129,0.25)">terraform apply tfplan.binary</span>
+    </div>
+  </div>
+  <div class="wf-card">
+    <div class="wf-num" style="background:linear-gradient(135deg,#10b981,#06b6d4)">08</div>
+    <div class="wf-body">
+      <h3>🔒 Secrets Injected via Vault / KMS</h3>
+      <p>No secrets in code. Azure Key Vault or AWS Secrets Manager referenced via TF data sources. OIDC token-based auth — no long-lived keys in pipelines.</p>
+      <span class="wf-tag" style="background:rgba(16,185,129,0.12);color:#34d399;border:1px solid rgba(16,185,129,0.25)">data "azurerm_key_vault_secret" {}</span>
+    </div>
+  </div>
+  <div class="wf-card">
+    <div class="wf-num" style="background:linear-gradient(135deg,#ec4899,#8b5cf6)">09</div>
+    <div class="wf-body">
+      <h3>🔄 Drift Detection (Scheduled)</h3>
+      <p>Scheduled pipeline runs terraform plan daily. Any drift (manual changes in console) alerts the team via Slack/Teams/PagerDuty. Drift auto-remediation optional.</p>
+      <span class="wf-tag" style="background:rgba(236,72,153,0.12);color:#f472b6;border:1px solid rgba(236,72,153,0.25)">cron: "0 6 * * *" # daily at 6am</span>
+    </div>
+  </div>
+  <div class="wf-card">
+    <div class="wf-num" style="background:linear-gradient(135deg,#ec4899,#8b5cf6)">10</div>
+    <div class="wf-body">
+      <h3>📊 Observability &amp; Cost Governance</h3>
+      <p>Azure Monitor / CloudWatch track provisioned resources. Infracost estimates cost delta per PR. Resource tags enforced via TF policy. Budget alerts configured.</p>
+      <span class="wf-tag" style="background:rgba(236,72,153,0.12);color:#f472b6;border:1px solid rgba(236,72,153,0.25)">infracost diff --path=.</span>
+    </div>
+  </div>
+</div>
+
+<div class="div"></div>
+
+<!-- ══ SECTION 7 — ANIMATED FLOW ══════════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sn" style="background:linear-gradient(135deg,#06b6d4,#10b981)">7</div>
+  <h2>Animated Flow — LinkedIn Carousel</h2>
+  <span class="stag" style="background:rgba(6,182,212,0.12);border:1px solid rgba(6,182,212,0.3);color:#22d3ee;">STEP BY STEP</span>
+</div>
+
+<div class="flow-wrap">
+  <div class="flow-inner">
+
+    <div class="fs">
+      <div class="fa-icon" style="background:rgba(0,120,212,0.15)">👨‍💻</div>
+      <div class="fa-text"><div class="fa-lbl">Step 1 — Dev writes Terraform code in feature branch</div><div class="fa-dsc">VS Code + HCL extension · pre-commit hooks validate locally</div></div>
+      <span class="fa-badge" style="background:rgba(0,120,212,0.12);color:#50e6ff;border:1px solid rgba(0,120,212,0.3)">DEV</span>
+    </div>
+    <div class="farrow">⬇</div>
+
+    <div class="fs">
+      <div class="fa-icon" style="background:rgba(123,66,188,0.15)">🔀</div>
+      <div class="fa-text"><div class="fa-lbl">Step 2 — Pull Request triggers CI pipeline</div><div class="fa-dsc">Azure Pipelines / CodePipeline fires · YAML workflow begins</div></div>
+      <span class="fa-badge" style="background:rgba(123,66,188,0.12);color:#a97fe0;border:1px solid rgba(123,66,188,0.3)">CI TRIGGER</span>
+    </div>
+    <div class="farrow">⬇</div>
+
+    <div class="fs">
+      <div class="fa-icon" style="background:rgba(239,68,68,0.15)">🛡️</div>
+      <div class="fa-text"><div class="fa-lbl">Step 3 — Security scan (checkov + tfsec)</div><div class="fa-dsc">CIS benchmark checks · misconfig detection · FAIL blocks merge</div></div>
+      <span class="fa-badge" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.3)">SECURITY</span>
+    </div>
+    <div class="farrow">⬇</div>
+
+    <div class="fs">
+      <div class="fa-icon" style="background:rgba(123,66,188,0.15)">🏗️</div>
+      <div class="fa-text"><div class="fa-lbl">Step 4 — terraform init with remote backend</div><div class="fa-dsc">Azure Blob or S3+DynamoDB · OIDC auth · provider lock verified</div></div>
+      <span class="fa-badge" style="background:rgba(123,66,188,0.12);color:#a97fe0;border:1px solid rgba(123,66,188,0.3)">TERRAFORM</span>
+    </div>
+    <div class="farrow">⬇</div>
+
+    <div class="fs">
+      <div class="fa-icon" style="background:rgba(245,158,11,0.15)">📋</div>
+      <div class="fa-text"><div class="fa-lbl">Step 5 — terraform plan posted as PR comment</div><div class="fa-dsc">Exact diff: +3 to add, ~1 to change, -0 to destroy · saved as artifact</div></div>
+      <span class="fa-badge" style="background:rgba(245,158,11,0.12);color:#fbbf24;border:1px solid rgba(245,158,11,0.3)">TF PLAN</span>
+    </div>
+    <div class="farrow">⬇</div>
+
+    <div class="fs">
+      <div class="fa-icon" style="background:rgba(16,185,129,0.15)">💰</div>
+      <div class="fa-text"><div class="fa-lbl">Step 6 — Infracost estimates cost delta</div><div class="fa-dsc">Monthly cost change shown in PR · budget policy gate if delta > $X</div></div>
+      <span class="fa-badge" style="background:rgba(16,185,129,0.12);color:#34d399;border:1px solid rgba(16,185,129,0.3)">COST</span>
+    </div>
+    <div class="farrow">⬇</div>
+
+    <div class="fs">
+      <div class="fa-icon" style="background:rgba(245,158,11,0.15)">👁️</div>
+      <div class="fa-text"><div class="fa-lbl">Step 7 — Manual approval gate (prod only)</div><div class="fa-dsc">Senior engineer reviews plan · Azure Env gate or AWS SNS approval</div></div>
+      <span class="fa-badge" style="background:rgba(245,158,11,0.12);color:#fbbf24;border:1px solid rgba(245,158,11,0.3)">APPROVAL</span>
+    </div>
+    <div class="farrow">⬇</div>
+
+    <div class="fs">
+      <div class="fa-icon" style="background:rgba(6,182,212,0.15)">🚀</div>
+      <div class="fa-text"><div class="fa-lbl">Step 8 — terraform apply provisions resources</div><div class="fa-dsc">AKS / EKS / VPC / RDS created · state written to remote backend</div></div>
+      <span class="fa-badge" style="background:rgba(6,182,212,0.12);color:#22d3ee;border:1px solid rgba(6,182,212,0.3)">APPLY</span>
+    </div>
+    <div class="farrow">⬇</div>
+
+    <div class="fs">
+      <div class="fa-icon" style="background:rgba(123,66,188,0.15)">🔒</div>
+      <div class="fa-text"><div class="fa-lbl">Step 9 — Secrets injected (no hardcoded creds)</div><div class="fa-dsc">Azure Key Vault / AWS Secrets Manager · OIDC token · zero static keys</div></div>
+      <span class="fa-badge" style="background:rgba(123,66,188,0.12);color:#a97fe0;border:1px solid rgba(123,66,188,0.3)">SECRETS</span>
+    </div>
+    <div class="farrow">⬇</div>
+
+    <div class="fs" style="border-color:rgba(16,185,129,0.4)">
+      <div class="fa-icon" style="background:rgba(16,185,129,0.15)">🔄</div>
+      <div class="fa-text"><div class="fa-lbl">Step 10 — Drift detection + observability loop</div><div class="fa-dsc">Daily scheduled plan · Azure Monitor / CloudWatch alerts · feedback to dev</div></div>
+      <span class="fa-badge" style="background:rgba(16,185,129,0.12);color:#34d399;border:1px solid rgba(16,185,129,0.3)">LOOP ♻️</span>
+    </div>
+
+  </div>
+</div>
+
+<div class="div"></div>
+
+<!-- ══ SECTION 8 — AZURE vs AWS COMPARISON ════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sn" style="background:linear-gradient(135deg,#0078d4,#ff9900)">8</div>
+  <h2>Azure DevOps vs AWS DevOps — Side by Side</h2>
+  <span class="stag" style="background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--dim);">COMPARISON</span>
+</div>
+
+<div class="cmp-grid">
+  <div class="cmp-col" style="border:1px solid rgba(0,120,212,0.3)">
+    <div class="cmp-hdr cmp-az-hdr">☁️ Azure DevOps</div>
+    <div class="cmp-row"><span class="cmp-lbl">Source Ctrl</span>Azure Repos (Git)</div>
+    <div class="cmp-row"><span class="cmp-lbl">CI/CD</span>Azure Pipelines (YAML)</div>
+    <div class="cmp-row"><span class="cmp-lbl">Build Agent</span>Microsoft-hosted / Self-hosted</div>
+    <div class="cmp-row"><span class="cmp-lbl">Artifacts</span>Azure Artifacts (TF modules)</div>
+    <div class="cmp-row"><span class="cmp-lbl">TF State</span>Azure Blob Storage</div>
+    <div class="cmp-row"><span class="cmp-lbl">State Lock</span>Blob Lease Mechanism</div>
+    <div class="cmp-row"><span class="cmp-lbl">Secrets</span>Azure Key Vault</div>
+    <div class="cmp-row"><span class="cmp-lbl">Auth</span>Service Principal / OIDC (Workload Identity)</div>
+    <div class="cmp-row"><span class="cmp-lbl">Approval</span>Environment Approval Gates</div>
+    <div class="cmp-row"><span class="cmp-lbl">Monitoring</span>Azure Monitor + Log Analytics</div>
+    <div class="cmp-row"><span class="cmp-lbl">Cost</span>Infracost + Azure Cost Mgmt</div>
+    <div class="cmp-row"><span class="cmp-lbl">Policy</span>Azure Policy + Checkov</div>
+  </div>
+  <div class="cmp-col" style="border:1px solid rgba(255,153,0,0.3)">
+    <div class="cmp-hdr cmp-aw-hdr">🟠 AWS DevOps</div>
+    <div class="cmp-row"><span class="cmp-lbl">Source Ctrl</span>CodeCommit / GitHub</div>
+    <div class="cmp-row"><span class="cmp-lbl">CI/CD</span>CodePipeline + CodeBuild</div>
+    <div class="cmp-row"><span class="cmp-lbl">Build Agent</span>CodeBuild Managed Containers</div>
+    <div class="cmp-row"><span class="cmp-lbl">Artifacts</span>CodeArtifact / S3 for TF modules</div>
+    <div class="cmp-row"><span class="cmp-lbl">TF State</span>S3 (versioning enabled)</div>
+    <div class="cmp-row"><span class="cmp-lbl">State Lock</span>DynamoDB Table</div>
+    <div class="cmp-row"><span class="cmp-lbl">Secrets</span>AWS Secrets Manager / SSM</div>
+    <div class="cmp-row"><span class="cmp-lbl">Auth</span>IAM Role / OIDC (GitHub Actions)</div>
+    <div class="cmp-row"><span class="cmp-lbl">Approval</span>SNS + Lambda / Manual Approval Action</div>
+    <div class="cmp-row"><span class="cmp-lbl">Monitoring</span>CloudWatch + CloudTrail</div>
+    <div class="cmp-row"><span class="cmp-lbl">Cost</span>Infracost + AWS Cost Explorer</div>
+    <div class="cmp-row"><span class="cmp-lbl">Policy</span>AWS Config + Service Control Policies</div>
+  </div>
+</div>
+
+<div class="div"></div>
+
+<!-- ══ SECTION 9 — TOOLS TABLE ════════════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sn" style="background:linear-gradient(135deg,#10b981,#06b6d4)">9</div>
+  <h2>Full Tool Stack Reference</h2>
+  <span class="stag" style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);color:#34d399;">ALL TOOLS</span>
+</div>
+
+<table class="tools-table">
+  <tr><th>Tool</th><th>Cloud</th><th>Category</th><th>Purpose</th></tr>
+  <tr><td>Terraform 1.8+</td><td><span class="tl-cloud tl-both">Both</span></td><td>IaC Engine</td><td>Declarative infra provisioning, plan/apply lifecycle</td></tr>
+  <tr><td>Azure Pipelines</td><td><span class="tl-cloud tl-azure">Azure</span></td><td>CI/CD</td><td>YAML-based multi-stage pipeline for TF workflows</td></tr>
+  <tr><td>AWS CodePipeline</td><td><span class="tl-cloud tl-aws">AWS</span></td><td>CI/CD</td><td>Visual pipeline orchestration + approval stages</td></tr>
+  <tr><td>AWS CodeBuild</td><td><span class="tl-cloud tl-aws">AWS</span></td><td>Build</td><td>Serverless build containers for TF plan/apply</td></tr>
+  <tr><td>Azure Repos</td><td><span class="tl-cloud tl-azure">Azure</span></td><td>Source Control</td><td>Git repos + branch policies + PR reviews</td></tr>
+  <tr><td>AWS CodeCommit</td><td><span class="tl-cloud tl-aws">AWS</span></td><td>Source Control</td><td>Managed Git + trigger rules via EventBridge</td></tr>
+  <tr><td>Azure Blob Storage</td><td><span class="tl-cloud tl-azure">Azure</span></td><td>TF State</td><td>Remote state backend with blob lease locking</td></tr>
+  <tr><td>AWS S3 + DynamoDB</td><td><span class="tl-cloud tl-aws">AWS</span></td><td>TF State</td><td>Remote state backend with DynamoDB state locking</td></tr>
+  <tr><td>Azure Key Vault</td><td><span class="tl-cloud tl-azure">Azure</span></td><td>Secrets</td><td>Secrets, certificates, encryption keys management</td></tr>
+  <tr><td>AWS Secrets Manager</td><td><span class="tl-cloud tl-aws">AWS</span></td><td>Secrets</td><td>Dynamic secrets + SSM Parameter Store</td></tr>
+  <tr><td>checkov</td><td><span class="tl-cloud tl-both">Both</span></td><td>Security</td><td>Static analysis — CIS, NIST, SOC2 compliance checks</td></tr>
+  <tr><td>tfsec / tflint</td><td><span class="tl-cloud tl-both">Both</span></td><td>Security/Lint</td><td>Security misconfig scan + Terraform linting</td></tr>
+  <tr><td>Infracost</td><td><span class="tl-cloud tl-both">Both</span></td><td>Cost</td><td>Cost estimation per PR — prevents bill shock</td></tr>
+  <tr><td>pre-commit</td><td><span class="tl-cloud tl-both">Both</span></td><td>Local DX</td><td>fmt, validate, tflint hooks before every commit</td></tr>
+  <tr><td>Azure Monitor</td><td><span class="tl-cloud tl-azure">Azure</span></td><td>Observability</td><td>Metrics, alerts, dashboards for infra resources</td></tr>
+  <tr><td>AWS CloudWatch</td><td><span class="tl-cloud tl-aws">AWS</span></td><td>Observability</td><td>Logs, metrics, alarms and CloudTrail audit</td></tr>
+  <tr><td>Grafana</td><td><span class="tl-cloud tl-both">Both</span></td><td>Dashboards</td><td>Unified observability across Azure and AWS</td></tr>
+  <tr><td>HCP Terraform (Cloud)</td><td><span class="tl-cloud tl-both">Both</span></td><td>TF Platform</td><td>Remote runs, Sentinel policies, audit logs</td></tr>
+</table>
+
+<div class="div"></div>
+
+<!-- ══ SECTION 10 — LINKEDIN CAPTION ═════════════════════════════════════ -->
+<div class="sec-hdr">
+  <div class="sn" style="background:linear-gradient(135deg,#ec4899,#8b5cf6)">10</div>
+  <h2>LinkedIn Caption</h2>
+  <span class="stag" style="background:rgba(236,72,153,0.12);border:1px solid rgba(236,72,153,0.3);color:#f472b6;">READY TO POST</span>
+</div>
+
+<div class="li-card">
+  <div class="li-head">
+    <div class="li-icon">in</div>
+    <div>
+      <div style="font-size:15px;font-weight:700;">LinkedIn Post Caption</div>
+      <div style="font-size:11px;color:var(--muted);">Multi-cloud Terraform IaC — optimised for DevOps engineers</div>
+    </div>
+  </div>
+  <div class="li-body">
+    <div><span class="hl">🏗️ This is how production teams manage Terraform at scale across Azure AND AWS.</span></div><br/>
+    <div>Most engineers treat infrastructure like a one-time setup. The best teams treat it like <span class="hl">software — versioned, reviewed, tested, and automated.</span></div><br/>
+    <div>Here's the full architecture 👇</div><br/>
+    <div><span class="chk">✅ Terraform</span> as the <span class="hl">single IaC engine</span> for both Azure and AWS</div>
+    <div><span class="chk">✅ Azure Pipelines / CodePipeline</span> for automated plan → approve → apply</div>
+    <div><span class="chk">✅ Remote state</span> in Azure Blob / S3 with DynamoDB locking — zero conflicts</div>
+    <div><span class="chk">✅ checkov + tfsec</span> scan every PR for security misconfigs BEFORE apply</div>
+    <div><span class="chk">✅ Manual approval gate</span> for prod — no auto-apply where it matters</div>
+    <div><span class="chk">✅ Infracost</span> shows cost delta on every PR — goodbye bill shock</div>
+    <div><span class="chk">✅ Drift detection</span> runs daily — any manual console change gets caught</div>
+    <div><span class="chk">✅ Azure Key Vault / Secrets Manager</span> — zero hardcoded credentials. Ever.</div>
+    <br/>
+    <div>The golden rule: <span class="hl">If it's not in Git, it doesn't exist in production.</span></div><br/>
+    <div>💡 Bonus tip: Use <span class="hl">OIDC federation</span> for your pipelines. No more rotating service principal passwords or long-lived AWS access keys in your CI variables.</div><br/>
+    <div>🔁 Tag a DevOps engineer who's still running terraform apply from their laptop in prod. Let's help them out. 😄</div>
+    <div class="hashtags">
+      #Terraform #DevOps #AzureDevOps #AWSDevOps #IaC #GitOps #CloudEngineering #Kubernetes #AKS #EKS #CICD #Azure #AWS #MultiCloud #PlatformEngineering #CloudNative #DevSecOps #Checkov #InfrastructureAsCode #HashiCorp
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:32px;" class="footer">
+  <p>Terraform with Azure DevOps &amp; AWS DevOps — Full Production Architecture</p>
+</div>
+
+</body>
+</html>
